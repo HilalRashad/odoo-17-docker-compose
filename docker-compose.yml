@@ -1,35 +1,100 @@
-version: '2'
-services:
-  db:
-    image: postgres:16
-    user: root
-    environment:
-      - POSTGRES_USER=odoo
-      - POSTGRES_PASSWORD=odoo17@2023
-      - POSTGRES_DB=postgres
-    restart: always             # run as a service
-    volumes:
-        - ./postgresql:/var/lib/postgresql/data
+# الإصدار الأحدث من Docker Compose لدعم ميزات متقدمة
+version: '3.8'
 
-  odoo17:
-    image: odoo:17
-    user: root
-    depends_on:
-      - db
-    ports:
-      - "10017:8069"
-      - "20017:8072" # live chat
-    tty: true
-    command: --
-    environment:
-      - HOST=db
-      - USER=odoo
-      - PASSWORD=odoo17@2023
-    volumes:
-      #- /etc/timezone:/etc/timezone:ro
-      #- /etc/localtime:/etc/localtime:ro
-      # - ./entrypoint.sh:/entrypoint.sh   # if you want to install additional Python packages, uncomment this line!
-      - ./addons:/mnt/extra-addons
-      - ./etc:/etc/odoo
-    restart: always             # run as a service
-    
+# تعريف الخدمات المطلوبة للمشروع
+services:
+ # خدمة قاعدة البيانات PostgreSQL
+ db:
+   # استخدام أحدث إصدار من PostgreSQL
+   image: postgres:16
+   
+   # تشغيل الحاوية بصلاحيات المسؤول
+   user: root
+   
+   # إعدادات قاعدة البيانات
+   environment:
+     # اسم المستخدم الافتراضي
+     - POSTGRES_USER=odoo
+     # كلمة المرور القوية
+     - POSTGRES_PASSWORD=odoo17@2023
+     # اسم قاعدة البيانات الرئيسية
+     - POSTGRES_DB=postgres
+   
+   # إعادة التشغيل التلقائي في حال أي مشكلة
+   restart: always
+   
+   # تخزين دائم لبيانات قاعدة البيانات
+   volumes:
+     # ربط مجلد محلي بمجلد بيانات PostgreSQL
+     - ./postgresql:/var/lib/postgresql/data
+   
+   # شبكة التواصل الداخلية
+   networks:
+     - odoo_network
+   
+   # فحص صحة قاعدة البيانات
+   healthcheck:
+     # الأمر للتأكد من جاهزية قاعدة البيانات
+     test: ["CMD-SHELL", "pg_isready -U odoo"]
+     # الفحص كل 5 ثواني
+     interval: 5s
+     # مهلة الانتظار 5 ثواني
+     timeout: 5s
+     # عدد المحاولات
+     retries: 5
+
+ # خدمة Odoo
+ odoo17:
+   # استخدام أحدث إصدار Odoo
+   image: odoo:17
+   
+   # تشغيل الحاوية بصلاحيات المسؤول
+   user: root
+   
+   # انتظار تأكد تشغيل قاعدة البيانات
+   depends_on:
+     db:
+       # التأكد من جاهزية قاعدة البيانات
+       condition: service_healthy
+   
+   # فتح منافذ الوصول
+   ports:
+     # منفذ الويب الرئيسي
+     - "10017:8069"
+     # live chat منفذ المحادثة الفورية
+     - "20017:8072"
+   tty: true
+
+   
+   # متغيرات الاتصال بقاعدة البيانات
+   environment:
+     # اسم مضيف قاعدة البيانات
+     - HOST=db
+     # اسم المستخدم
+     - USER=odoo
+     # كلمة المرور
+     - PASSWORD=odoo17@2023
+   
+   # تخزين الملفات والإضافات
+   volumes:
+     # مجلد الإضافات الإضافية
+     - ./addons:/mnt/extra-addons
+     # مجلد الإعدادات
+     - ./etc:/etc/odoo
+     #- /etc/timezone:/etc/timezone:ro
+     #- /etc/localtime:/etc/localtime:ro
+     # - ./entrypoint.sh:/entrypoint.sh   # if you want to install additional Python packages, uncomment this line!
+   
+   # إعادة التشغيل التلقائي
+   restart: always
+   
+   # شبكة التواصل الداخلية
+   networks:
+     - odoo_network
+
+# تعريف الشبكة الداخلية
+networks:
+ # اسم الشبكة
+ odoo_network:
+   # نوع الشبكة
+   driver: bridge
